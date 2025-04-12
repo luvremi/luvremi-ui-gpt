@@ -1,11 +1,11 @@
 import { useState } from 'react';
 
 export default function Home() {
+  const [input, setInput] = useState('');
   const [output, setOutput] = useState('');
   const [summary, setSummary] = useState('');
-  const [input, setInput] = useState('');
-  const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [history, setHistory] = useState([]);
 
   const handleGenerate = async () => {
     if (!input.trim()) return;
@@ -17,11 +17,20 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input }),
       });
-      const data = await res.json();
 
-      setOutput(data.result);
-      setSummary(data.summary || '요약 생성 실패');
-      setHistory((prev) => [...prev, { input, result: data.result, summary: data.summary }]);
+      const contentType = res.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+
+      const rawData = await res.text();
+      const data = isJson ? JSON.parse(rawData) : { error: rawData };
+
+      if (res.ok) {
+        setOutput(data.result);
+        setSummary(data.summary || '');
+        setHistory((prev) => [...prev, { input, result: data.result, summary: data.summary }]);
+      } else {
+        setOutput('❌ 오류: ' + (data.error || '응답 에러'));
+      }
     } catch (err) {
       setOutput('에러 발생: ' + err.message);
     }
@@ -32,7 +41,7 @@ export default function Home() {
   const handleLoad = (item) => {
     setInput(item.input);
     setOutput(item.result);
-    setSummary(item.summary);
+    setSummary(item.summary || '');
   };
 
   const handleDelete = (index) => {
@@ -41,7 +50,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#1e1e1e] text-white p-6 flex flex-col lg:flex-row">
-      {/* 왼쪽 - 출력/입력 */}
       <div className="flex-1 flex flex-col lg:mr-6">
         <h1 className="text-2xl font-bold mb-4">Remi's GPT 소설 생성기 📖</h1>
 
@@ -73,7 +81,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 오른쪽 - 생성 내역 */}
       <div className="w-full lg:w-[300px] mt-10 lg:mt-0">
         <h2 className="text-lg font-semibold mb-2">📚 생성 내역</h2>
         <ul className="space-y-2">
